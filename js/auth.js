@@ -128,7 +128,7 @@ function initSystem() {
 }
 
 // Kayıt ol
-function valideKayit() {
+async function valideKayit() {
     const email = document.getElementById('c_user').value.trim().toLowerCase();
     const pass = document.getElementById('c_pass').value;
 
@@ -154,32 +154,37 @@ function valideKayit() {
         return;
     }
 
-    // Kayıt kontrolü
-    const existingPass = localStorage.getItem("user_" + email);
-    if (existingPass) {
-        showToast('Bu e-posta zaten kayıtlı! Giriş yapın.');
-        return;
+    try {
+        const response = await fetch('/save-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, pass, mode: 'reg' })
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('Kayıt başarılı! Hoşgeldin maili gönderildi.');
+            // Vatandaş verisini oluştur
+            updateCitizen(email, {
+                lastActive: new Date().toISOString(),
+                registeredAt: new Date().toISOString()
+            });
+            // Giriş yap
+            STATE.userRole = 'citizen';
+            tempUserData = { email };
+            setCurrentUserEmail(email);
+            showContract();
+        } else {
+            showToast(data.message);
+        }
+    } catch (error) {
+        showToast('Kayıt sırasında hata oluştu.');
+        console.error('Registration error:', error);
     }
-
-    // Kayıt işlemi
-    localStorage.setItem("user_" + email, pass);
-
-    // Vatandaş verisini oluştur
-    updateCitizen(email, {
-        lastActive: new Date().toISOString(),
-        registeredAt: new Date().toISOString()
-    });
-
-    // Giriş yap
-    STATE.userRole = 'citizen';
-    tempUserData = { email };
-    setCurrentUserEmail(email);
-
-    showContract();
 }
 
 // Giriş yap
-function valideGiris() {
+async function valideGiris() {
     const email = document.getElementById('c_user').value.trim().toLowerCase();
     const pass = document.getElementById('c_pass').value;
 
@@ -201,27 +206,62 @@ function valideGiris() {
         return;
     }
 
-    // Şifre kontrolü
-    const kayitliSifre = localStorage.getItem("user_" + email);
-    if (!kayitliSifre) {
-        showToast('Kayıtlı kullanıcı bulunamadı! Önce kayıt olun.');
+    try {
+        const response = await fetch('/save-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, pass, mode: 'login' })
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            // Giriş işlemi
+            STATE.userRole = 'citizen';
+            tempUserData = { email };
+            setCurrentUserEmail(email);
+            // Son aktifliği güncelle
+            updateCitizen(email, { lastActive: new Date().toISOString() });
+            showContract();
+        } else {
+            showToast(data.message);
+        }
+    } catch (error) {
+        showToast('Giriş sırasında hata oluştu.');
+        console.error('Login error:', error);
+    }
+}
+ 
+// Şifremi unuttum
+async function forgotPassword() {
+    const email = document.getElementById('c_user').value.trim().toLowerCase();
+    
+    if (!email || !isValidEmail(email)) {
+        showToast('Geçerli bir e-posta adresi girin!');
         return;
     }
 
-    if (kayitliSifre !== pass) {
-        showToast('Şifre hatalı!');
+    if (!email.endsWith("@gmail.com")) {
+        showToast('Sadece @gmail.com adresi girin!');
         return;
     }
 
-    // Giriş işlemi
-    STATE.userRole = 'citizen';
-    tempUserData = { email };
-    setCurrentUserEmail(email);
-
-    // Son aktifliği güncelle
-    updateCitizen(email, { lastActive: new Date().toISOString() });
-
-    showContract();
+    try {
+        const response = await fetch('/api/forgot-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            showToast('Şifre sıfırlama maili gönderildi! Lütfen emailinizi kontrol edin.');
+        } else {
+            showToast(data.message);
+        }
+    } catch (error) {
+        showToast('Bir hata oluştu, lütfen tekrar deneyin.');
+        console.error('Forgot password error:', error);
+    }
 }
 
 // Enter ile giriş / şifre alanına yönlendirme
