@@ -9,7 +9,7 @@ app.use(express.json());
 app.use(express.static('.'));
 
 // Email transporter (Gmail için)
-const transporter = nodemailer.createTransporter({
+const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
         user: process.env.EMAIL_USER || 'your-email@gmail.com', // Environment variable
